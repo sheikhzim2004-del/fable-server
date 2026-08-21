@@ -114,6 +114,27 @@ async function run() {
 
             res.send(book);
         });
+        app.get('/payments/writer/:writerId', async (req, res) => {
+            try {
+                const { writerId } = req.params;
+
+                // writerId er shob book er _id gula ber kora
+                const writerBooks = await booksCollection.find({ writerId }).toArray();
+                const bookIds = writerBooks.map((book) => String(book._id));
+
+                // shei bookId gula diye payment collection theke shob sale khoja
+                const sales = await paymentCollection
+                    .find({ bookId: { $in: bookIds } })
+                    .sort({ _id: -1 })
+                    .toArray();
+
+                const totalSales = sales.reduce((sum, sale) => sum + Number(sale.price), 0);
+
+                res.send({ sales, totalSales, count: sales.length });
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch writer sales", error: error.message });
+            }
+        });
         // user er kena shob book er talika (User Dashboard- er jonno)
         app.get('/payments/user/:userId', async (req, res) => {
             const { userId } = req.params;
