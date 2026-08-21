@@ -50,12 +50,47 @@ async function run() {
             res.send(pay_result)
         })
         app.get('/api/books', async (req, res) => {
-            const { writerId } = req.query;
-            const query = writerId ? { writerId } : {};
-            const books = await booksCollection.find(query).toArray();
-            res.send(books);
+            try {
+                const { writerId, status, page, limit } = req.query;
+
+                // query object toiri kora (writerId ebong status filter korar jonno)
+                let query = {};
+                if (writerId) query.writerId = writerId;
+                if (status) query.status = status; // browse page theke 'published' pathale shudhu published boi ashbe
+
+                // jodi frontend theke page ba limit pathano hoy tahole pagination hobe
+                if (page || limit) {
+                    const pageNum = parseInt(page) || 1;
+                    const limitNum = parseInt(limit) || 8; // proti page e 8 ta kore boi thakbe
+                    const skip = (pageNum - 1) * limitNum;
+
+                    // query onushare total koyta boi ache sheta count kora
+                    const totalBooks = await booksCollection.countDocuments(query);
+
+                    // specific page er boi gula database theke fetch kora
+                    const books = await booksCollection
+                        .find(query)
+                        .skip(skip)
+                        .limit(limitNum)
+                        .toArray();
+
+                    return res.send({
+                        books,
+                        totalBooks,
+                        totalPages: Math.ceil(totalBooks / limitNum),
+                        currentPage: pageNum,
+                    });
+                }
+
+                // jodi pagination parameters na thake tahole shob boi ekbare pathabe
+                const books = await booksCollection.find(query).toArray();
+                res.send(books);
+
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch books", error: error.message });
+            }
         });
-        // চেক করা: নির্দিষ্ট ইউজার নির্দিষ্ট বইটি কিনেছে কি না
+        // check: nirdisto user nirdisto book kinche ki na
         app.get('/payment/check', async (req, res) => {
             const { userId, bookId } = req.query;
 
@@ -79,7 +114,7 @@ async function run() {
 
             res.send(book);
         });
-        // ইউজারের কেনা সব বইয়ের তালিকা (User Dashboard-এর জন্য)
+        // user er kena shob book er talika (User Dashboard- er jonno)
         app.get('/payments/user/:userId', async (req, res) => {
             const { userId } = req.params;
             const result = await paymentCollection.find({ userId: String(userId) }).toArray();
@@ -96,6 +131,21 @@ async function run() {
                 { $set: updatedBook }
             );
             res.send(result);
+        });
+        app.patch('/api/books/:id/status', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const { status } = req.body; // 'published' ba 'unpublished'
+
+                const result = await booksCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: { status: status } }
+                );
+
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to update book status", error: error.message });
+            }
         });
 
         app.delete('/api/books/:id', async (req, res) => {
