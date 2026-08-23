@@ -26,6 +26,7 @@ async function run() {
         const database = client.db("fable_db");
         const booksCollection = database.collection("books");
         const paymentCollection = database.collection("payment");
+        const usersCollection = database.collection("user"); 
 
         app.post('/api/books', async (req, res) => {
             const book = req.body;
@@ -104,6 +105,25 @@ async function run() {
             });
 
             res.send({ isPurchased: !!payment }); // payment record thakle true pathabe !! ata diye payment kea boleean kora hoiche
+        });
+        app.get("/payment/user/:userId", async (req, res) => {
+            const {userId} = req.params;
+            const result = await paymentCollection.find({userId: String(userId)}).toArray();
+            res.send(result)
+        })
+        app.get("/api/top-writers", async (req, res) => {
+            try {
+                // Jodi sales tracking collection thake athoba user/writers theke sort kore
+                const topWriters = await usersCollection
+                    .find({ role: "writer" })
+                    .sort({ totalSales: -1 }) // Beshi bikri onushare sort
+                    .limit(3)
+                    .toArray();
+
+                res.send(topWriters);
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch top writers" });
+            }
         });
         app.get('/api/books/:id', async (req, res) => {
             const id = req.params.id;
