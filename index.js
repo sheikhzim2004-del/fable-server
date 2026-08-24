@@ -34,7 +34,7 @@ async function run() {
             res.send(result)
         })
         app.post('/payment', async (req, res) => {
-            const { price, userId, bookId, title, session_id } = req.body;
+            const { price, userId, bookId, title, session_id, writer } = req.body;
 
             const isExistSession = await paymentCollection.findOne({ session_id })
             if (isExistSession) {
@@ -46,7 +46,10 @@ async function run() {
                 session_id,
                 price: Number(price),
                 title,
-                bookId
+                bookId,
+                writer: writer || "Unknown Writer",
+                purchaseDate: new Date(),
+                status: "Paid"
             })
             res.send(pay_result)
         })
