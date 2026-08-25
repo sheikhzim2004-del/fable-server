@@ -26,7 +26,7 @@ async function run() {
         const database = client.db("fable_db");
         const booksCollection = database.collection("books");
         const paymentCollection = database.collection("payment");
-        const usersCollection = database.collection("user"); 
+        const usersCollection = database.collection("user");
 
         app.post('/api/books', async (req, res) => {
             const book = req.body;
@@ -34,7 +34,7 @@ async function run() {
             res.send(result)
         })
         app.post('/payment', async (req, res) => {
-            const { price, userId, bookId, title, session_id, writer } = req.body;
+            const { price, userId, bookId, title, session_id, writer, coverImage, genre } = req.body;
 
             const isExistSession = await paymentCollection.findOne({ session_id })
             if (isExistSession) {
@@ -48,6 +48,8 @@ async function run() {
                 title,
                 bookId,
                 writer: writer || "Unknown Writer",
+                coverImage,
+                genre,
                 purchaseDate: new Date(),
                 status: "Paid"
             })
@@ -109,9 +111,16 @@ async function run() {
 
             res.send({ isPurchased: !!payment }); // payment record thakle true pathabe !! ata diye payment kea boleean kora hoiche
         });
+
+        //all users get 
+        app.get('/users', async (req, res) => {
+            const users = await usersCollection.find().toArray();
+            res.send(users)
+        })
+
         app.get("/payment/user/:userId", async (req, res) => {
-            const {userId} = req.params;
-            const result = await paymentCollection.find({userId: String(userId)}).toArray();
+            const { userId } = req.params;
+            const result = await paymentCollection.find({ userId: String(userId) }).toArray();
             res.send(result)
         })
         app.get("/api/top-writers", async (req, res) => {
@@ -191,6 +200,20 @@ async function run() {
                 res.status(500).send({ message: "Failed to update book status", error: error.message });
             }
         });
+        app.patch('/user/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const { role } = req.body;
+
+                const result = await usersCollection.updateOne(
+                    {_id: new ObjectId(id)},
+                    {$set: {role: role}}
+                )
+                res.send(result)
+            } catch (error) {
+                res.status(500),send({message: "Failed to update users role", error: error.message})
+            }
+        })
 
         app.delete('/api/books/:id', async (req, res) => {
             try {
@@ -220,6 +243,27 @@ async function run() {
             }
         });
 
+        app.delete('/user/:id', async (req, res) => {
+            try{
+                const {id} = req.params;
+                const result = await usersCollection.deleteOne({_id: new ObjectId(id)})
+                if(result.deletedCount === 0){
+                    return res.status(404).send({
+                        error: "User Not Found"
+                    })
+                }
+                res.send({
+                    success: true,
+                    message: "User Deleted Successfully"
+                })
+            }catch(error){
+                console.log(error);
+                res.status(500).send({
+                    error: "Failed to delete user"
+                })
+            }
+        })
+
 
 
 
@@ -231,9 +275,9 @@ async function run() {
 }
 run().catch(console.dir);
 
-app.get('/', (req, res) => {
-    res.send('the server site is working')
-})
+// app.get('/', (req, res) => {
+//     res.send('the server site is working')
+// })
 
 
 
