@@ -2,12 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
-app.use(cors());
+app.use(cors({
+    origin: [
+        "http://localhost:3000",
+        "https://fable-hazel.vercel.app"
+    ],
+    credentials: true
+}));
 app.use(express.json())
 
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const PORT = process.env.SERVER_PORT;
+const port = process.env.SERVER_PORT;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -206,12 +212,12 @@ async function run() {
                 const { role } = req.body;
 
                 const result = await usersCollection.updateOne(
-                    {_id: new ObjectId(id)},
-                    {$set: {role: role}}
+                    { _id: new ObjectId(id) },
+                    { $set: { role: role } }
                 )
                 res.send(result)
             } catch (error) {
-                res.status(500),send({message: "Failed to update users role", error: error.message})
+                res.status(500), send({ message: "Failed to update users role", error: error.message })
             }
         })
 
@@ -244,10 +250,10 @@ async function run() {
         });
 
         app.delete('/user/:id', async (req, res) => {
-            try{
-                const {id} = req.params;
-                const result = await usersCollection.deleteOne({_id: new ObjectId(id)})
-                if(result.deletedCount === 0){
+            try {
+                const { id } = req.params;
+                const result = await usersCollection.deleteOne({ _id: new ObjectId(id) })
+                if (result.deletedCount === 0) {
                     return res.status(404).send({
                         error: "User Not Found"
                     })
@@ -256,7 +262,7 @@ async function run() {
                     success: true,
                     message: "User Deleted Successfully"
                 })
-            }catch(error){
+            } catch (error) {
                 console.log(error);
                 res.status(500).send({
                     error: "Failed to delete user"
@@ -281,6 +287,6 @@ app.get('/', (req, res) => {
 
 
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 })
