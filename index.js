@@ -13,7 +13,7 @@ app.use(express.json())
 
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const port = process.env.SERVER_PORT;
+const port = process.env.PORT;
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -26,13 +26,14 @@ const client = new MongoClient(MONGODB_URI, {
 });
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
 
-        // Connect to the "fable_db" database and access its "books" collection
+        // Connect to the "fable_db" database and access its "books, payment, users" collection
         const database = client.db("fable_db");
         const booksCollection = database.collection("books");
         const paymentCollection = database.collection("payment");
         const usersCollection = database.collection("user");
+        const bookmarksCollection = database.collection("bookmarks")
 
         app.post('/api/books', async (req, res) => {
             const book = req.body;
@@ -61,6 +62,40 @@ async function run() {
             })
             res.send(pay_result)
         })
+        // Bookmark add ba remove (toggle) korar API
+        app.post("/api/bookmarks/toggle", async (req, res) => {
+            try {
+                const { userEmail, bookId } = req.body;
+
+                if (!userEmail || !bookId) {
+                    return res.status(400).send({ message: "Email and BookId need" });
+                }
+
+                // Age thekei bookmark kora ache kina check kora
+                const existingBookmark = await bookmarksCollection.findOne({
+                    userEmail,
+                    bookId,
+                });
+
+                if (existingBookmark) {
+                    // Jodi thake tahole remove kore dibe (Unbookmark)
+                    await bookmarksCollection.deleteOne({ userEmail, bookId });
+                    return res.send({ message: "Bookmark removed", bookmarked: false });
+                } else {
+                    // Jodi na thake tahole notun kore add korbe
+                    const newBookmark = {
+                        userEmail,
+                        bookId,
+                        createdAt: new Date(),
+                    };
+                    await bookmarksCollection.insertOne(newBookmark);
+                    return res.send({ message: "Bookmarked successfully", bookmarked: true });
+                }
+            } catch (error) {
+                console.error("Bookmark toggle error:", error);
+                res.status(500).send({ message: "Internal server error" });
+            }
+        });
         app.get('/api/books', async (req, res) => {
             try {
                 const { writerId, status, page, limit } = req.query;
@@ -178,6 +213,34 @@ async function run() {
             const { userId } = req.params;
             const result = await paymentCollection.find({ userId: String(userId) }).toArray();
             res.send(result);
+        });
+        // Logged in user-er shob bookmarked boi load korar API
+        app.get("/api/bookmarks/:userEmail", async (req, res) => {
+            try {
+                const email = req.params.userEmail;
+
+                // 1. Ei user-er shob bookmark data find kora
+                const userBookmarks = await bookmarksCollection
+                    .find({ userEmail: email })
+                    .toArray();
+
+                if (!userBookmarks.length) {
+                    return res.send([]);
+                }
+
+                // 2. Bookmark gulo theke shob bookId ObjectId te convert kora
+                const bookIds = userBookmarks.map((item) => new ObjectId(item.bookId));
+
+                // 3. Books collection theke oi bookId gulo diye full book details ana
+                const books = await booksCollection
+                    .find({ _id: { $in: bookIds } })
+                    .toArray();
+
+                res.send(books);
+            } catch (error) {
+                console.error("Fetch bookmarks error:", error);
+                res.status(500).send({ message: "Internal server error" });
+            }
         });
         app.put('/api/books/:id', async (req, res) => {
             const id = req.params.id;
