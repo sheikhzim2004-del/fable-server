@@ -96,6 +96,10 @@ async function run() {
                 res.status(500).send({ message: "Internal server error" });
             }
         });
+        app.get("/payment", async (req, res) => {
+            const result = await paymentCollection.find().toArray();
+            res.send(result)
+        })
         app.get('/api/books', async (req, res) => {
             try {
                 const { writerId, status, page, limit } = req.query;
