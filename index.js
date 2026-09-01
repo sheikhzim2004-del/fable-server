@@ -32,6 +32,7 @@ async function run() {
         const database = client.db("fable_db");
         const booksCollection = database.collection("books");
         const paymentCollection = database.collection("payment");
+        const writerFeeCollection = database.collection("writerFee");
         const usersCollection = database.collection("user");
         const bookmarksCollection = database.collection("bookmarks")
 
@@ -62,6 +63,44 @@ async function run() {
             })
             res.send(pay_result)
         })
+        app.post('/writerFee', async (req, res) => {
+            const { userId, userName, userEmail, session_id } = req.body;
+
+            if(!userId && !userEmail){
+                return res.status(400).send({ message: "User Info is required" })
+            }
+
+            //payment collection e writer fee record insert kora
+            const writerFee_result = await writerFeeCollection.insertOne({
+                writerId: userId,
+                writerName: userName,
+                writerEmail: userEmail,
+                sessionId: session_id || null,
+                amount: 10,
+                status: "paid",
+                createdAt: new Date()
+            })
+
+            //mul users collection e user er role update kora (isWriterId true, role: writer, verifiedAt)
+            const filter = userId ? { _id: new ObjectId(userId)} : {email: userEmail}
+
+            const updateDoc = {
+                $set: {
+                    isWriterVerified: true,
+                    role: 'writer',
+                    verifiedAt: new Date()
+                }
+            }
+
+            const userUpdateResult = await usersCollection.updateOne(filter, updateDoc)  
+
+            res.send({
+                success: true,
+                writerFeeResult: writerFee_result,
+                userUpdateResult: userUpdateResult
+            })
+        })
+        
         // Bookmark add ba remove (toggle) korar API
         app.post("/api/bookmarks/toggle", async (req, res) => {
             try {
